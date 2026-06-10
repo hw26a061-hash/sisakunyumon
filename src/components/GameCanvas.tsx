@@ -322,101 +322,50 @@ export default function GameCanvas({
     }
   };
 
-  // Finds the standard non-hazard platform edge/corner closer to player's trajectory or auto-aims in player's facing direction
-  const findGrappleTarget = (): { target: Vector2D; distance: number } | null => {
+  // Finds the standard non-hazard platform edge/corner closer to the mouse coordinate
+  const findGrappleTarget = (clickX: number, clickY: number): { target: Vector2D; distance: number } | null => {
     const p = playerRef.current;
     // Hook max range: default 280px, upgraded to ~370px (+~30%)
     const maxRange = selectedUpgrades.has('wire_range') ? 370 : 280;
     const px = p.x;
     const py = p.y - p.height / 2;
 
-    // Detect if we are holding space and exceeded hold threshold (9 frames ~ 0.15s)
-    const isActuallyHolding = !!p.isHoldingSpace && (p.spaceHoldDuration !== undefined && p.spaceHoldDuration >= 9);
-
-    // Advanced Auto-Aim in player's facing direction (keyboard-only gameplay optimization)
-    // We generate sample target points along undersides and side walls of all platforms
-    let bestAutoTarget: Vector2D | null = null;
-    let bestAutoScore = -Infinity;
-    let bestAutoDistance = maxRange;
+    let bestTgt: Vector2D | null = null;
+    let minTgtMouseDist = 180; // Assistance threshold of 180px near the mouse cursor
+    let bestTgtPlayerDist = maxRange;
 
     level.platforms.forEach((plat) => {
-      if (plat.type === 'hazard') return;
+      if (plat.type === 'hazard' || !plat.isHookable) return;
 
-      const candidates: Vector2D[] = [];
+      // Find closest point on this platform box to the click pos
+      const clampedX = Math.max(plat.x, Math.min(clickX, plat.x + plat.width));
+      const clampedY = Math.max(plat.y, Math.min(clickY, plat.y + plat.height));
 
-      // Sample along underside (ceiling)
-      const undersideSteps = Math.max(2, Math.floor(plat.width / 30));
-      for (let i = 0; i <= undersideSteps; i++) {
-        candidates.push({
-          x: plat.x + (plat.width * i) / undersideSteps,
-          y: plat.y + plat.height,
-        });
+      // Limit to underside, ceiling, or vertical walls (exclude floor surfaces far below player feet)
+      const isOnSideWall = (clampedX === plat.x || clampedX === plat.x + plat.width);
+      if (!isOnSideWall && clampedY > p.y + 15) return;
+
+      const pDx = clampedX - px;
+      const pDy = clampedY - py;
+      const pDist = Math.sqrt(pDx * pDx + pDy * pDy);
+
+      // Must be within player's max range
+      if (pDist > maxRange) return;
+
+      const mDx = clampedX - clickX;
+      const mDy = clampedY - clickY;
+      const mDist = Math.sqrt(mDx * mDx + mDy * mDy);
+
+      // Select the platform edge closest to the mouse cursor
+      if (mDist < minTgtMouseDist) {
+        minTgtMouseDist = mDist;
+        bestTgt = { x: clampedX, y: clampedY };
+        bestTgtPlayerDist = pDist;
       }
-
-      // Sample along left vertical wall
-      const leftSteps = Math.max(2, Math.floor(plat.height / 30));
-      for (let i = 0; i <= leftSteps; i++) {
-        candidates.push({
-          x: plat.x,
-          y: plat.y + (plat.height * i) / leftSteps,
-        });
-      }
-
-      // Sample along right vertical wall
-      const rightSteps = Math.max(2, Math.floor(plat.height / 30));
-      for (let i = 0; i <= rightSteps; i++) {
-        candidates.push({
-          x: plat.x + plat.width,
-          y: plat.y + (plat.height * i) / rightSteps,
-        });
-      }
-
-      candidates.forEach((c) => {
-        const dx = c.x - px;
-        const dy = c.y - py;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        // Must be within valid range
-        if (dist > maxRange || dist < 45) return;
-
-        // Must broadly be in the direction the player is facing/moving (Normally restricted only if NOT fully holding space)
-        if (!isActuallyHolding) {
-          if (p.facingLeft && dx > 25) return;
-          if (!p.facingLeft && dx < -25) return;
-          if (c.y > p.y + 25) return; // Ensure it's not far below player's feet
-        }
-
-        // Evaluate score
-        const angle = Math.atan2(dy, dx);
-        const idealAngle = isActuallyHolding && p.grappleAimAngle !== undefined
-          ? p.grappleAimAngle
-          : (p.facingLeft ? -Math.PI * 0.75 : -Math.PI * 0.25);
-
-        let diff = Math.abs(angle - idealAngle);
-        while (diff > Math.PI) diff -= Math.PI * 2;
-        while (diff < -Math.PI) diff += Math.PI * 2;
-        diff = Math.abs(diff);
-
-        // If manually holding space to rotate aim, filter targets inside a ±45 degree cone to be very precise!
-        if (isActuallyHolding && diff > Math.PI / 4) return;
-
-        const angleScale = (Math.PI - diff) / Math.PI; // 0 to 1 (1 is perfect 45 deg)
-        const heightFactor = (p.y - c.y) / 150; // higher is better
-        // When space is holding, proximity to exact beam angle matters most
-        const score = isActuallyHolding
-          ? angleScale * 140 - (dist / maxRange) * 10
-          : angleScale * 100 + heightFactor * 30 - (dist / maxRange) * 15;
-
-        if (score > bestAutoScore) {
-          bestAutoScore = score;
-          bestAutoTarget = c;
-          bestAutoDistance = dist;
-        }
-      });
     });
 
-    if (bestAutoTarget) {
-      return { target: bestAutoTarget, distance: bestAutoDistance };
+    if (bestTgt) {
+      return { target: bestTgt, distance: bestTgtPlayerDist };
     }
 
     return null;
@@ -433,7 +382,8 @@ export default function GameCanvas({
       return;
     }
 
-    const grappleInfo = findGrappleTarget();
+    const worldMouse = getWorldMousePos();
+    const grappleInfo = findGrappleTarget(worldMouse.x, worldMouse.y);
 
     if (grappleInfo) {
       const { target } = grappleInfo;
@@ -653,7 +603,6 @@ export default function GameCanvas({
     const isFiringState = p.grappleState.type === 'FIRING';
     const isSpacePressedNow = !!keysPressed.current[' '];
     const spaceJustPressed = isSpacePressedNow && !p.prevSpacePressed;
-    const spaceJustReleased = !isSpacePressedNow && p.prevSpacePressed;
     p.prevSpacePressed = isSpacePressedNow;
 
     // Release space hold if grounded
@@ -661,10 +610,9 @@ export default function GameCanvas({
       p.isHoldingSpace = false;
     }
 
-    // A. Just Pressed space controls
+    // A. Spacebar release active wire and jump off with momentum boost
     if (spaceJustPressed) {
       if (isSwingingState || isFiringState) {
-        // Release active wire on press
         p.grappleState.type = 'IDLE';
         p.isHoldingSpace = false;
         if (isSwingingState) {
@@ -677,84 +625,15 @@ export default function GameCanvas({
           sfx.playGrappleLaunch();
         }
         keysPressed.current[' '] = false; // consume
-      } else if (p.isGrounded) {
-        // Regular jump on ground
-        p.vy = jumpStrength;
-        p.isGrounded = false;
-        p.doubleJumpAvailable = true;
-        sfx.playJump();
-        spawnSparkParticles(p.x, p.y, '#e2e8f0', 5);
-        keysPressed.current[' '] = false; // consume
-      } else {
-        // Start orbital aim holding in mid-air
-        p.isHoldingSpace = true;
-        p.spaceHoldDuration = 0;
-        p.grappleAimAngle = p.facingLeft ? -Math.PI * 0.75 : -Math.PI * 0.25;
       }
     }
 
-    // B. Maintain and rotate aim while holding space in air
-    const HOLD_THRESHOLD = 9;
-    if (p.isHoldingSpace && isSpacePressedNow && !p.isGrounded) {
-      if (p.spaceHoldDuration === undefined) p.spaceHoldDuration = 0;
-      p.spaceHoldDuration++;
-
-      // Rotate laser direction ONLY when the HOLD_THRESHOLD is reached/exceeded
-      if (p.spaceHoldDuration >= HOLD_THRESHOLD) {
-        if (p.grappleAimAngle === undefined) {
-          p.grappleAimAngle = p.facingLeft ? -Math.PI * 0.75 : -Math.PI * 0.25;
-        }
-        p.grappleAimAngle += 0.048; // clockwise rotation per frame (approx. 2.7 degrees)
-        while (p.grappleAimAngle > Math.PI) p.grappleAimAngle -= Math.PI * 2;
-        while (p.grappleAimAngle < -Math.PI) p.grappleAimAngle += Math.PI * 2;
-      }
-    }
-
-    // C. Just Released space controls
-    if (spaceJustReleased) {
-      if (p.isHoldingSpace) {
-        p.isHoldingSpace = false;
-        if (p.grappleState.type === 'IDLE') {
-          const duration = p.spaceHoldDuration || 0;
-          if (duration < HOLD_THRESHOLD) {
-            // Short press (tap): Execute mid-air double jump!
-            if (p.doubleJumpAvailable) {
-              p.vy = jumpStrength * 0.9;
-              p.doubleJumpAvailable = false;
-              sfx.playJump();
-              spawnSparkParticles(p.x, p.y - 12, '#818cf8', 8);
-            }
-          } else {
-            // Long press: Release to fire the grapple wire at the selected direction
-            const grappleInfo = findGrappleTarget();
-            if (grappleInfo) {
-              const { target } = grappleInfo;
-              sfx.playGrappleLaunch();
-              p.grappleState = {
-                type: 'FIRING',
-                targetX: target.x,
-                targetY: target.y,
-                length: 10,
-                angle: 0,
-                angularVelocity: 0,
-              };
-              spawnSparkParticles(target.x, target.y, '#818cf8', 4);
-            } else {
-              sfx.playFailure();
-            }
-          }
-        }
-        p.spaceHoldDuration = 0;
-      }
-    }
-
-    // D. Discrete W / ArrowUp jump and double jump controls
-    // Guard this so keys are not eaten up/consumed when in active swinging or firing state (needed for wire length adjustment!)
+    // B. Normal Jump / Double Jump controls (W / ArrowUp) when NOT using the wire
     if (!isSwingingState && !isFiringState) {
       const isWOrUpPressed = keysPressed.current['w'] || keysPressed.current['arrowup'];
       if (isWOrUpPressed) {
-        keysPressed.current['w'] = false;
-        keysPressed.current['arrowup'] = false;
+        keysPressed.current['w'] = false; // consume
+        keysPressed.current['arrowup'] = false; // consume
         if (p.isGrounded) {
           p.vy = jumpStrength;
           p.isGrounded = false;
@@ -1674,19 +1553,53 @@ export default function GameCanvas({
         ctx.closePath();
         ctx.fill();
 
+      } else if (plat.isHookable) {
+        // High-tech Grapple-ready anchor platform
+        ctx.fillStyle = '#0b1329';
+        ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+
+        // Pulsing or bright neon cyan border
+        ctx.strokeStyle = '#22d3ee';
+        ctx.lineWidth = 2.5;
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = '#22d3ee';
+        ctx.strokeRect(plat.x, plat.y, plat.width, plat.height);
+        ctx.shadowBlur = 0; // reset shadow
+
+        // Distinct yellow-black/cyan-gold safety hazard stripes or anchor plates
+        ctx.strokeStyle = 'rgba(34, 211, 238, 0.45)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(plat.x + 3, plat.y + 3, plat.width - 6, plat.height - 6);
+
+        // Draw cross lines / hatch marks inside to signal magnetic scaffold
+        ctx.strokeStyle = 'rgba(34, 211, 238, 0.15)';
+        ctx.beginPath();
+        for (let offset = 10; offset < plat.width; offset += 20) {
+          ctx.moveTo(plat.x + offset, plat.y);
+          ctx.lineTo(plat.x + offset + 10, plat.y + plat.height);
+        }
+        ctx.stroke();
+
+        // Corner yellow bolt connectors indicating heavy-duty hookable nodes
+        ctx.fillStyle = '#fbbf24'; // Amber bolt
+        ctx.beginPath();
+        ctx.arc(plat.x + 4, plat.y + 4, 1.8, 0, Math.PI * 2);
+        ctx.arc(plat.x + plat.width - 4, plat.y + 4, 1.8, 0, Math.PI * 2);
+        ctx.arc(plat.x + 4, plat.y + plat.height - 4, 1.8, 0, Math.PI * 2);
+        ctx.arc(plat.x + plat.width - 4, plat.y + plat.height - 4, 1.8, 0, Math.PI * 2);
+        ctx.fill();
       } else {
-        // Regular platform carbon slate pattern
+        // Regular platform carbon slate pattern (NOT hookable!)
         ctx.fillStyle = '#0f172a';
         ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
 
-        // Neon metallic blue trim
-        ctx.strokeStyle = '#4f46e5';
-        ctx.strokeStyle = 'rgba(79, 70, 229, 0.65)';
-        ctx.lineWidth = 2;
+        // Steel gray / dark indigo trim to indicate ordinary structure
+        ctx.strokeStyle = 'rgba(79, 70, 229, 0.35)';
+        ctx.lineWidth = 1.5;
         ctx.strokeRect(plat.x, plat.y, plat.width, plat.height);
 
-        // Museum elegant gold accent inner line for depth
-        ctx.strokeStyle = 'rgba(217, 119, 6, 0.45)';
+        // Subtle dark inner trim
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.1)';
         ctx.lineWidth = 1;
         ctx.strokeRect(plat.x + 3, plat.y + 3, plat.width - 6, plat.height - 6);
       }
@@ -2266,73 +2179,75 @@ export default function GameCanvas({
     const px = p.x;
     const py = p.y - p.height / 2;
 
-    const isActuallyHolding = !!p.isHoldingSpace && (p.spaceHoldDuration !== undefined && p.spaceHoldDuration >= 9);
+    const worldMouse = getWorldMousePos();
+    const clickX = worldMouse.x;
+    const clickY = worldMouse.y;
 
-    // A. Transparent outer range boundary indicator (Dotted Circle/Halo around player)
+    const dx = clickX - px;
+    const dy = clickY - py;
+    const mouseDist = Math.sqrt(dx * dx + dy * dy);
+
+    // A. Pulse-glowing outer reach range boundary indicator (High-Visibility Dotted/Solid Circular Halo around player)
     ctx.save();
-    ctx.strokeStyle = p.grappleState.type === 'IDLE' ? 'rgba(99, 102, 241, 0.16)' : 'rgba(99, 102, 241, 0.05)';
-    ctx.lineWidth = 1;
+    // Inner pulse layer
+    const pulseOffset = Math.sin(frameCountRef.current * 0.12) * 3.5;
+    ctx.strokeStyle = p.grappleState.type === 'IDLE' ? 'rgba(34, 211, 238, 0.28)' : 'rgba(34, 211, 238, 0.08)';
+    ctx.lineWidth = 1.2;
     ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.arc(px, py, maxRange + pulseOffset, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Outer subtle static shell
+    ctx.strokeStyle = p.grappleState.type === 'IDLE' ? 'rgba(99, 102, 241, 0.12)' : 'rgba(99, 102, 241, 0.04)';
+    ctx.lineWidth = 2.0;
+    ctx.setLineDash([]);
     ctx.beginPath();
     ctx.arc(px, py, maxRange, 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
 
-    // If player is already actively utilizing wire, project active release helper
+    // If player is already actively utilizing wire, project active release and reel-in guides
     if (p.grappleState.type === 'SWINGING' || p.grappleState.type === 'FIRING') {
       ctx.save();
       const wave = 9 + Math.sin(frameCountRef.current * 0.18) * 3;
-      ctx.strokeStyle = 'rgba(34, 211, 238, 0.45)';
+      ctx.strokeStyle = 'rgba(34, 211, 238, 0.5)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.arc(p.grappleState.targetX, p.grappleState.targetY, wave, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Draw small text showing "[SPACE] TO RELEASE" near the active anchor
+      // Draw informative on-screen instructions directly on the hook anchor point
       ctx.shadowBlur = 0;
-      ctx.fillStyle = 'rgba(34, 211, 238, 0.85)';
-      ctx.font = '8px system-ui, sans-serif';
-      ctx.fillText('[SPACE]: RELEASE', p.grappleState.targetX + 12, p.grappleState.targetY + 3);
+      ctx.fillStyle = 'rgba(34, 211, 238, 0.95)';
+      ctx.font = 'bold 8px system-ui, sans-serif';
+      ctx.fillText('W / S / ↑ / ↓ : ADJUST LENGTH', p.grappleState.targetX + 12, p.grappleState.targetY + 4);
+      ctx.fillText('SPACE / CLICK : RELEASE & JUMP', p.grappleState.targetX + 12, p.grappleState.targetY + 14);
       ctx.restore();
       return;
     }
 
-    // B. Draw rotating laser aiming beam if player is holding space (exceeding HOLD threshold)
-    if (isActuallyHolding && p.grappleAimAngle !== undefined) {
+    // B. Draw elegant connecting beam from player to mouse cursor (visualizes direction and distance limit)
+    if (mouseDist > 10) {
       ctx.save();
-      const laserX = px + Math.cos(p.grappleAimAngle) * maxRange;
-      const laserY = py + Math.sin(p.grappleAimAngle) * maxRange;
-
-      // Draw elegant neon sweeping line
-      ctx.strokeStyle = 'rgba(129, 140, 248, 0.45)'; // Indigo-400 transparent laser
+      const isWithinReach = mouseDist <= maxRange;
       ctx.lineWidth = 1.0;
-      ctx.setLineDash([3, 5]);
+      ctx.setLineDash([3, 4]);
+      // Cyan if in-range, rose if out-of-range
+      ctx.strokeStyle = isWithinReach ? 'rgba(34, 211, 238, 0.4)' : 'rgba(244, 63, 94, 0.3)';
+      
+      const lineEndX = isWithinReach ? clickX : px + (dx / mouseDist) * maxRange;
+      const lineEndY = isWithinReach ? clickY : py + (dy / mouseDist) * maxRange;
+      
       ctx.beginPath();
       ctx.moveTo(px, py);
-      ctx.lineTo(laserX, laserY);
+      ctx.lineTo(lineEndX, lineEndY);
       ctx.stroke();
-
-      // Draw subtle orbital gauge arc near player showing rotation intent
-      ctx.beginPath();
-      ctx.strokeStyle = 'rgba(129, 140, 248, 0.3)';
-      ctx.lineWidth = 1.5;
-      ctx.arc(px, py, 35, p.grappleAimAngle - 0.5, p.grappleAimAngle);
-      ctx.stroke();
-
-      // Draw small arrowhead indicating clockwise rotation direction
-      const arrowAngle = p.grappleAimAngle;
-      const arrowX = px + Math.cos(arrowAngle) * 35;
-      const arrowY = py + Math.sin(arrowAngle) * 35;
-      ctx.fillStyle = 'rgba(129, 140, 248, 0.7)';
-      ctx.beginPath();
-      ctx.arc(arrowX, arrowY, 2.5, 0, Math.PI * 2);
-      ctx.fill();
-
       ctx.restore();
     }
 
-    // C. Calculate live snap coordinate for HUD locks (purely Auto-Aim based)
-    const grappleInfo = findGrappleTarget();
+    // C. Calculate live snap coordinate for HUD locks (purely Assistance/Mouse based)
+    const grappleInfo = findGrappleTarget(clickX, clickY);
 
     // D. Draw targeted HUD elements based on snap calculation
     if (grappleInfo) {
@@ -2341,8 +2256,8 @@ export default function GameCanvas({
 
       // 1. Sleek laser trajectory guide link (Cyan transparent dashed path from player to target platform)
       ctx.save();
-      ctx.strokeStyle = isActuallyHolding ? 'rgba(34, 211, 238, 0.85)' : 'rgba(34, 211, 238, 0.55)'; // highlight when holding
-      ctx.lineWidth = isActuallyHolding ? 1.6 : 1.2;
+      ctx.strokeStyle = 'rgba(34, 211, 238, 0.75)';
+      ctx.lineWidth = 1.4;
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
       ctx.moveTo(px, py);
@@ -2354,7 +2269,7 @@ export default function GameCanvas({
       ctx.save();
       const waveVal = 8 + Math.sin(frameCountRef.current * 0.15) * 2;
       ctx.strokeStyle = '#22d3ee';
-      ctx.lineWidth = isActuallyHolding ? 2.2 : 1.8;
+      ctx.lineWidth = 2.0;
       ctx.shadowBlur = 6;
       ctx.shadowColor = '#22d3ee';
       
@@ -2379,20 +2294,40 @@ export default function GameCanvas({
       ctx.shadowBlur = 0;
       ctx.fillStyle = '#22d3ee';
       ctx.font = '900 8.5px system-ui, sans-serif';
-      ctx.fillText(isActuallyHolding ? 'AIM LOCKED - RELEASE' : 'GRAPPLE LOCK-ON', tgt.x + 14, tgt.y - 4);
+      ctx.fillText('GRAPPLE LOCK-ON', tgt.x + 14, tgt.y - 4);
       
       const distancePercent = Math.round((minDistance / maxRange) * 100);
       ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
       ctx.font = '7.5px system-ui, sans-serif';
-      const actionText = isActuallyHolding ? 'RELEASE [SPACE] TO SWING' : '[SPACE] TO SWING';
-      ctx.fillText(`RANGE: ${distancePercent}% | ${actionText}`, tgt.x + 14, tgt.y + 7);
+      ctx.fillText(`RANGE: ${distancePercent}% | CLICK / SPACE TO SWING`, tgt.x + 14, tgt.y + 7);
       ctx.restore();
-    } else if (isActuallyHolding && p.grappleAimAngle !== undefined) {
-      // 4. If holding but no target exists along this angle, draw helper near player
+    } else {
+      // 4. No snapping locked target, draw mouse-hover crosshair targeting aide!
       ctx.save();
-      ctx.fillStyle = 'rgba(165, 180, 252, 0.7)';
-      ctx.font = '8px system-ui, sans-serif';
-      ctx.fillText('AIM ROTATING (RELEASE TO JUMP)', px + 18, py - 14);
+      const inRange = mouseDist <= maxRange;
+      ctx.strokeStyle = inRange ? 'rgba(34, 211, 238, 0.6)' : 'rgba(244, 63, 94, 0.6)';
+      ctx.lineWidth = 1.0;
+      
+      // Draw reticle ring
+      ctx.beginPath();
+      ctx.arc(clickX, clickY, 8, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Draw small crosshair ticks
+      ctx.beginPath();
+      ctx.moveTo(clickX - 12, clickY); ctx.lineTo(clickX - 4, clickY);
+      ctx.moveTo(clickX + 4, clickY); ctx.lineTo(clickX + 12, clickY);
+      ctx.moveTo(clickX, clickY - 12); ctx.lineTo(clickX, clickY - 4);
+      ctx.moveTo(clickX, clickY + 4); ctx.lineTo(clickX, clickY + 12);
+      ctx.stroke();
+      
+      // Draw text helper
+      ctx.font = '7.5px system-ui, sans-serif';
+      ctx.fillStyle = inRange ? 'rgba(34, 211, 238, 0.6)' : 'rgba(244, 63, 94, 0.6)';
+      ctx.shadowBlur = 0;
+      
+      const statusText = inRange ? 'AIMING (SNAP TO NEON ANCHOR)' : 'OUT OF RANGE';
+      ctx.fillText(statusText, clickX + 12, clickY + 3);
       ctx.restore();
     }
   };
@@ -2407,7 +2342,7 @@ export default function GameCanvas({
         ref={canvasRef}
         width={800}
         height={500}
-        className={`w-full max-w-[800px] h-auto object-contain bg-neutral-950 aspect-video rounded-xl shadow-2xl block ${!isPaused ? 'cursor-none' : 'cursor-default'}`}
+        className={`w-full max-w-[800px] h-auto object-contain bg-neutral-950 aspect-video rounded-xl shadow-2xl block ${!isPaused ? 'cursor-crosshair' : 'cursor-default'}`}
         style={{ imageRendering: 'pixelated' }}
       />
     </div>

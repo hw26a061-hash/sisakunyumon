@@ -121,6 +121,7 @@ export interface Platform {
   width: number;
   height: number;
   type: 'normal' | 'hazard' | 'bounce' | 'ice';
+  isHookable?: boolean;
 }
 
 export interface LevelConfig {

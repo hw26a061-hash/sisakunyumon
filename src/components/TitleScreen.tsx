@@ -421,7 +421,7 @@ export default function TitleScreen({
                       <span className="text-[10px] font-mono text-indigo-400 font-bold block mb-1">BASIC CONTROLS</span>
                       <ul className="space-y-1.5 font-sans text-neutral-300 text-[11px]">
                         <li><strong className="text-white font-mono bg-neutral-800 px-1.5 py-0.5 rounded text-[10px]">A / D</strong> もしくは <strong className="text-white font-mono bg-neutral-800 px-1.5 py-0.5 rounded text-[10px]">← / →</strong>：移動</li>
-                        <li><strong className="text-white font-mono bg-neutral-800 px-1.5 py-0.5 rounded text-[10px]">W</strong> もしくは <strong className="text-white font-mono bg-neutral-800 px-1.5 py-0.5 rounded text-[10px]">SPACE / ↑</strong>：ジャンプ（空中2段ジャンプ可）</li>
+                        <li><strong className="text-white font-mono bg-neutral-800 px-1.5 py-0.5 rounded text-[10px]">W / ↑</strong>：ジャンプ（空中2段ジャンプ可。ワイヤー使用中はジャンプは無効になり、ワイヤー巻き取りになります）</li>
                         <li><strong className="text-white font-mono bg-neutral-800 px-1.5 py-0.5 rounded text-[10px]">S</strong> もしくは <strong className="text-white font-mono bg-neutral-800 px-1.5 py-0.5 rounded text-[10px]">↓</strong>：スライディング（低姿勢でレーザーを回避）</li>
                       </ul>
                     </div>
@@ -430,8 +430,8 @@ export default function TitleScreen({
                       <span className="text-[10px] font-mono text-indigo-400 font-bold block mb-1">THIEF GADGETS</span>
                       <ul className="space-y-1.5 font-sans text-neutral-300 text-[11px]">
                         <li>
-                          <span className="text-white font-mono bg-neutral-800 px-1.5 py-0.5 rounded text-[10px]">マウスクリック</span>：
-                          壁や天井に向けてワイヤー（グラップル）を発射！体を引っ張ることができます。
+                          <span className="text-white font-mono bg-neutral-800 px-1.5 py-0.5 rounded text-[10px]">マウス移動 / クリック (E/F)</span>：
+                          壁や天井に向けてエイムしてワイヤーを発射！スイング中に <strong className="text-white font-mono bg-neutral-800 px-1 py-0.5 rounded text-[11px]">W / S / ↑ / ↓</strong> でワイヤー縮長・延長ができます。<strong className="text-white font-mono bg-neutral-800 px-1 py-0.5 rounded text-[11px]">SPACE</strong> や再クリックで弾性離脱ジャンプ！
                         </li>
                         <li>
                           <span className="text-white font-mono bg-neutral-800 px-1.5 py-0.5 rounded text-[10px]">Q</span>：

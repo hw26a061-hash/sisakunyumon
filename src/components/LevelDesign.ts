@@ -24,9 +24,9 @@ export const LEVEL_TEMPLATES: LevelConfig[] = [
       { x: 1450, y: 280, width: 200, height: 20, type: 'normal' },
 
       // High Ceilings for Grappling
-      { x: 0, y: 0, width: 2600, height: 60, type: 'normal' }, // Full Ceiling
-      { x: 700, y: 200, width: 100, height: 100, type: 'normal' }, // Hanging block
-      { x: 1700, y: 150, width: 120, height: 50, type: 'normal' },
+      { x: 0, y: 0, width: 2600, height: 60, type: 'normal', isHookable: true }, // Full Ceiling
+      { x: 700, y: 200, width: 100, height: 100, type: 'normal', isHookable: true }, // Hanging block
+      { x: 1700, y: 150, width: 120, height: 50, type: 'normal', isHookable: true },
 
       // Door blockers & end walls
       { x: 1800, y: 400, width: 100, height: 120, type: 'normal' },
@@ -162,12 +162,12 @@ export const LEVEL_TEMPLATES: LevelConfig[] = [
       { x: 1450, y: 150, width: 300, height: 20, type: 'normal' },
 
       // High Ceilings & swing pegs
-      { x: 0, y: 0, width: 3200, height: 60, type: 'normal' },
-      { x: 1000, y: 200, width: 80, height: 80, type: 'normal' },
-      { x: 1600, y: 100, width: 100, height: 60, type: 'normal' },
-      { x: 2200, y: 220, width: 150, height: 20, type: 'normal' },
-      { x: 2500, y: 350, width: 150, height: 20, type: 'normal' },
-      { x: 2750, y: 250, width: 150, height: 20, type: 'normal' },
+      { x: 0, y: 0, width: 3200, height: 60, type: 'normal', isHookable: true },
+      { x: 1000, y: 200, width: 80, height: 80, type: 'normal', isHookable: true },
+      { x: 1600, y: 100, width: 100, height: 60, type: 'normal', isHookable: true },
+      { x: 2200, y: 220, width: 150, height: 20, type: 'normal', isHookable: true },
+      { x: 2500, y: 350, width: 150, height: 20, type: 'normal', isHookable: true },
+      { x: 2750, y: 250, width: 150, height: 20, type: 'normal', isHookable: true },
       { x: 3000, y: 280, width: 180, height: 320, type: 'normal' },
     ],
     guards: [
@@ -344,10 +344,10 @@ export const LEVEL_TEMPLATES: LevelConfig[] = [
       { x: 3700, y: 500, width: 300, height: 100, type: 'normal' },
       
       // High Ceilings & Grab Points
-      { x: 0, y: 0, width: 4000, height: 60, type: 'normal' },
-      { x: 800, y: 100, width: 100, height: 50, type: 'normal' },
-      { x: 2100, y: 150, width: 200, height: 50, type: 'normal' },
-      { x: 3500, y: 180, width: 100, height: 50, type: 'normal' },
+      { x: 0, y: 0, width: 4000, height: 60, type: 'normal', isHookable: true },
+      { x: 800, y: 100, width: 100, height: 50, type: 'normal', isHookable: true },
+      { x: 2100, y: 150, width: 200, height: 50, type: 'normal', isHookable: true },
+      { x: 3500, y: 180, width: 100, height: 50, type: 'normal', isHookable: true },
     ],
     guards: [
       {

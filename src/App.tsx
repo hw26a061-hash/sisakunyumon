@@ -242,7 +242,7 @@ export default function App() {
               <span className="border-r border-neutral-800 pr-4">[A / D / ← →] 左右移動</span>
               <span className="border-r border-neutral-800 pr-4">[W / ↑] ジャンプ / 2段跳び</span>
               <span className="border-r border-neutral-800 pr-4">[S / ↓] スライディング (レーザー回避)</span>
-              <span className="border-r border-neutral-800 pr-4 text-cyan-400 font-semibold">[SPACE] 地上で跳躍 / 空中で短押しで2段跳び、長押しで照準回転・離してワイヤー射出 (スイング中に W/S で伸縮、SPACE で高速離脱)</span>
+              <span className="border-r border-neutral-800 pr-4 text-cyan-400 font-semibold">[マウス移動] 照準 | [左クリック / E / F] ワイヤー射出 | [W/S/↑/↓] ワイヤー伸縮 | [SPACE / クリック] ジャンプ離脱</span>
               <span className="border-r border-neutral-800 pr-4">[Q] 煙幕グレネード</span>
               <span>[SHIFT] ステルス光学迷彩</span>
             </div>
