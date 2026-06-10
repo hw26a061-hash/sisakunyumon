@@ -1,0 +1,6 @@
+{
+  "name": "怪盗 2D アクション",
+  "description": "怪盗（ファントム・シーフ）となって、警備員やレーザー監視をくぐり抜け、最高のお宝を盗み出す爽快2D横スクロールアクションゲーム。煙幕やワイヤーアクションを駆使してゴールを目指せ！",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
